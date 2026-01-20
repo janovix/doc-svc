@@ -15,7 +15,9 @@
 		"enabled": true,
 	},
 	"vars": {
-		"ENVIRONMENT": "development",
+		"ENVIRONMENT": "dev",
+		"AUTH_JWKS_CACHE_TTL": "3600",
+		"AUTH_SERVICE_URL": "https://auth-svc.janovix.workers.dev"
 	},
 	"d1_databases": [
 		{
