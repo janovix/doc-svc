@@ -1,0 +1,123 @@
+// Prisma schema for Document Processing Service
+// Learn more about it in the docs: https://pris.ly/d/prisma-schema
+// NOTE: All column names use snake_case via @map directives for consistency
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Document family classification
+// valid_id | proof_of_address | corporate
+enum DocFamily {
+  VALID_ID
+  PROOF_OF_ADDRESS
+  CORPORATE
+}
+
+// Document types
+enum DocType {
+  // Valid ID documents
+  MX_INE             // INE (Credencial para votar)
+  PASSPORT           // International passport
+  MX_CARTILLA_MILITAR // Cartilla militar
+  MX_CEDULA_PROFESIONAL // Cédula profesional
+  // Proof of address
+  PROOF_UTILITY_BILL // Electricity, water, gas
+  PROOF_TELECOM_BILL // ISP / phone bills
+  // Corporate documents
+  MX_ACTA_CONSTITUTIVA // Company constitution
+  MX_PODER_NOTARIAL // Power of attorney
+  // Unknown/unclassified
+  UNKNOWN
+}
+
+// Processing job status
+enum JobStatus {
+  PENDING    // Job created, waiting for processing
+  PROCESSING // Workflow is running
+  COMPLETED  // Successfully processed
+  FAILED     // Processing failed
+}
+
+// Final decision after processing
+enum Decision {
+  APPROVED // All validations passed
+  REVIEW   // Manual review required
+  REJECTED // Validation failed
+}
+
+// Uploaded document metadata
+model Document {
+  id              String   @id
+  organizationId  String   @map("organization_id")
+  originalFileKey String   @map("original_file_key") // R2 key for original file
+  fileName        String   @map("file_name")
+  fileSize        Int      @map("file_size")
+  fileType        String   @map("file_type") // pdf, png, jpg, webp
+  sha256Hash      String   @map("sha256_hash")
+  previewKeys     String?  @map("preview_keys") // JSON array of R2 keys for preview images
+  createdBy       String   @map("created_by")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  processingJobs ProcessingJob[]
+
+  @@index([organizationId])
+  @@index([sha256Hash])
+  @@map("documents")
+}
+
+// Processing job with results
+model ProcessingJob {
+  id                 String    @id
+  documentId         String    @map("document_id")
+  organizationId     String    @map("organization_id")
+  status             JobStatus @default(PENDING)
+  workflowInstanceId String?   @map("workflow_instance_id") // Cloudflare Workflow instance ID
+
+  // Classification result
+  docFamily                String?  @map("doc_family") // valid_id, proof_of_address, corporate
+  docType                  String?  @map("doc_type") // mx_ine, passport, etc.
+  classificationConfidence Float?   @map("classification_confidence")
+  classificationEvidence   String?  @map("classification_evidence") // JSON
+
+  // Visual validation result (MANDATORY)
+  visualValidationScore     Float?  @map("visual_validation_score")
+  visualValidationThreshold Float?  @map("visual_validation_threshold")
+  visualValidationPass      Boolean? @map("visual_validation_pass")
+  visualValidationSignals   String? @map("visual_validation_signals") // JSON array
+  visualValidationEvidence  String? @map("visual_validation_evidence") // JSON
+
+  // Extraction result
+  extractedFields String? @map("extracted_fields") // JSON with field values and confidences
+
+  // Validations
+  validations String? // JSON array of validation results
+
+  // Risk & Decision
+  riskScore      Float?    @map("risk_score")
+  riskSignals    String?   @map("risk_signals") // JSON array
+  decision       Decision?
+  decisionReason String?   @map("decision_reason")
+
+  // Processing metadata
+  markdownKey  String?   @map("markdown_key") // R2 key for extracted markdown
+  errorMessage String?   @map("error_message")
+  startedAt    DateTime? @map("started_at")
+  completedAt  DateTime? @map("completed_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@index([organizationId])
+  @@index([status])
+  @@map("processing_jobs")
+}

@@ -1,6 +1,6 @@
 declare namespace Cloudflare {
 	interface Env {
-		TASKS_KV: KVNamespace;
+		KV: KVNamespace;
 		TASKS_CACHE_TTL_SECONDS?: string;
 	}
 }

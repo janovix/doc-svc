@@ -1,0 +1,943 @@
+{
+	"openapi": "3.1.0",
+	"info": {
+		"title": "doc-svc",
+		"version": "1.1.0",
+		"description": "Document Ingestion, Classification, Visual Validation & Compliance API for Mexico KYC"
+	},
+	"components": {
+		"schemas": {},
+		"parameters": {}
+	},
+	"paths": {
+		"/documents": {
+			"get": {
+				"tags": ["Documents"],
+				"summary": "List documents",
+				"description": "List documents for the organization with pagination",
+				"operationId": "document-list",
+				"parameters": [
+					{
+						"schema": {
+							"type": "integer",
+							"minimum": 1,
+							"maximum": 100,
+							"default": 20
+						},
+						"required": false,
+						"name": "limit",
+						"in": "query"
+					},
+					{
+						"schema": {
+							"type": ["integer", "null"],
+							"minimum": 0,
+							"default": 0
+						},
+						"required": false,
+						"name": "offset",
+						"in": "query"
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "List of documents",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"success": {
+											"type": "boolean",
+											"enum": [true]
+										},
+										"result": {
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "array",
+													"items": {
+														"type": "object",
+														"properties": {
+															"id": {
+																"type": "string"
+															},
+															"organizationId": {
+																"type": "string"
+															},
+															"fileName": {
+																"type": "string"
+															},
+															"fileSize": {
+																"type": "number"
+															},
+															"fileType": {
+																"type": "string"
+															},
+															"sha256Hash": {
+																"type": "string"
+															},
+															"previewKeys": {
+																"type": ["array", "null"],
+																"items": {
+																	"type": "string"
+																}
+															},
+															"createdBy": {
+																"type": "string"
+															},
+															"createdAt": {
+																"type": "string"
+															},
+															"updatedAt": {
+																"type": "string"
+															}
+														},
+														"required": [
+															"id",
+															"organizationId",
+															"fileName",
+															"fileSize",
+															"fileType",
+															"sha256Hash",
+															"previewKeys",
+															"createdBy",
+															"createdAt",
+															"updatedAt"
+														]
+													}
+												},
+												"total": {
+													"type": "number"
+												},
+												"limit": {
+													"type": "number"
+												},
+												"offset": {
+													"type": "number"
+												}
+											},
+											"required": ["data", "total", "limit", "offset"]
+										}
+									},
+									"required": ["success", "result"]
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "Unauthorized",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"success": {
+											"type": "boolean",
+											"enum": [false]
+										},
+										"error": {
+											"type": "string"
+										}
+									},
+									"required": ["success", "error"]
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/documents/upload": {
+			"post": {
+				"tags": ["Documents"],
+				"summary": "Upload a document with optional preview images",
+				"description": "\nUpload a document (PDF or image) for processing. \n\n**Important**: PDF files MUST include at least one preview image to enable visual validation.\nThis prevents text-only fake PDFs from bypassing security checks.\n\nThe endpoint will:\n1. Validate the file type and upload contract\n2. Check for duplicate documents (by SHA-256 hash)\n3. Store the document and previews in R2\n4. Create a processing job\n5. Enqueue the job for async processing\n",
+				"operationId": "document-upload",
+				"responses": {
+					"200": {
+						"description": "Duplicate document found",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"success": {
+											"type": "boolean",
+											"enum": [true]
+										},
+										"result": {
+											"type": "object",
+											"properties": {
+												"documentId": {
+													"type": "string"
+												},
+												"duplicate": {
+													"type": "boolean",
+													"enum": [true]
+												},
+												"message": {
+													"type": "string"
+												}
+											},
+											"required": ["documentId", "duplicate", "message"]
+										}
+									},
+									"required": ["success", "result"]
+								}
+							}
+						}
+					},
+					"201": {
+						"description": "Document uploaded and processing job created",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"success": {
+											"type": "boolean",
+											"enum": [true]
+										},
+										"result": {
+											"type": "object",
+											"properties": {
+												"documentId": {
+													"type": "string"
+												},
+												"jobId": {
+													"type": "string"
+												},
+												"message": {
+													"type": "string"
+												}
+											},
+											"required": ["documentId", "jobId", "message"]
+										}
+									},
+									"required": ["success", "result"]
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Invalid request (missing file, invalid type, or missing preview for PDF)",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"success": {
+											"type": "boolean",
+											"enum": [false]
+										},
+										"error": {
+											"type": "string"
+										}
+									},
+									"required": ["success", "error"]
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "Unauthorized",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"success": {
+											"type": "boolean",
+											"enum": [false]
+										},
+										"error": {
+											"type": "string"
+										}
+									},
+									"required": ["success", "error"]
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/documents/{id}": {
+			"get": {
+				"tags": ["Documents"],
+				"summary": "Get document by ID",
+				"description": "Retrieve document metadata by its ID",
+				"operationId": "document-read",
+				"parameters": [
+					{
+						"schema": {
+							"type": "string",
+							"description": "Document ID"
+						},
+						"required": true,
+						"description": "Document ID",
+						"name": "id",
+						"in": "path"
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Document found",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"success": {
+											"type": "boolean",
+											"enum": [true]
+										},
+										"result": {
+											"type": "object",
+											"properties": {
+												"id": {
+													"type": "string"
+												},
+												"organizationId": {
+													"type": "string"
+												},
+												"fileName": {
+													"type": "string"
+												},
+												"fileSize": {
+													"type": "number"
+												},
+												"fileType": {
+													"type": "string"
+												},
+												"sha256Hash": {
+													"type": "string"
+												},
+												"previewKeys": {
+													"type": ["array", "null"],
+													"items": {
+														"type": "string"
+													}
+												},
+												"createdBy": {
+													"type": "string"
+												},
+												"createdAt": {
+													"type": "string"
+												},
+												"updatedAt": {
+													"type": "string"
+												}
+											},
+											"required": [
+												"id",
+												"organizationId",
+												"fileName",
+												"fileSize",
+												"fileType",
+												"sha256Hash",
+												"previewKeys",
+												"createdBy",
+												"createdAt",
+												"updatedAt"
+											]
+										}
+									},
+									"required": ["success", "result"]
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "Unauthorized",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"success": {
+											"type": "boolean",
+											"enum": [false]
+										},
+										"error": {
+											"type": "string"
+										}
+									},
+									"required": ["success", "error"]
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "Document not found",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"success": {
+											"type": "boolean",
+											"enum": [false]
+										},
+										"error": {
+											"type": "string"
+										}
+									},
+									"required": ["success", "error"]
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/jobs": {
+			"get": {
+				"tags": ["Jobs"],
+				"summary": "List processing jobs",
+				"description": "List processing jobs for the organization with pagination and filtering",
+				"operationId": "job-list",
+				"parameters": [
+					{
+						"schema": {
+							"type": "integer",
+							"minimum": 1,
+							"maximum": 100,
+							"default": 20
+						},
+						"required": false,
+						"name": "limit",
+						"in": "query"
+					},
+					{
+						"schema": {
+							"type": ["integer", "null"],
+							"minimum": 0,
+							"default": 0
+						},
+						"required": false,
+						"name": "offset",
+						"in": "query"
+					},
+					{
+						"schema": {
+							"type": "string",
+							"enum": ["PENDING", "PROCESSING", "COMPLETED", "FAILED"]
+						},
+						"required": false,
+						"name": "status",
+						"in": "query"
+					},
+					{
+						"schema": {
+							"type": "string"
+						},
+						"required": false,
+						"name": "documentId",
+						"in": "query"
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "List of jobs",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"success": {
+											"type": "boolean",
+											"enum": [true]
+										},
+										"result": {
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "array",
+													"items": {
+														"type": "object",
+														"properties": {
+															"id": {
+																"type": "string"
+															},
+															"documentId": {
+																"type": "string"
+															},
+															"organizationId": {
+																"type": "string"
+															},
+															"status": {
+																"type": "string",
+																"enum": [
+																	"PENDING",
+																	"PROCESSING",
+																	"COMPLETED",
+																	"FAILED"
+																]
+															},
+															"workflowInstanceId": {
+																"type": ["string", "null"]
+															},
+															"classification": {
+																"type": ["object", "null"],
+																"properties": {
+																	"docFamily": {
+																		"type": ["string", "null"]
+																	},
+																	"docType": {
+																		"type": ["string", "null"]
+																	},
+																	"confidence": {
+																		"type": ["number", "null"]
+																	},
+																	"evidence": {
+																		"type": ["object", "null"],
+																		"additionalProperties": {}
+																	}
+																},
+																"required": [
+																	"docFamily",
+																	"docType",
+																	"confidence",
+																	"evidence"
+																]
+															},
+															"visualValidation": {
+																"type": ["object", "null"],
+																"properties": {
+																	"score": {
+																		"type": ["number", "null"]
+																	},
+																	"threshold": {
+																		"type": ["number", "null"]
+																	},
+																	"pass": {
+																		"type": ["boolean", "null"]
+																	},
+																	"signals": {
+																		"type": ["array", "null"],
+																		"items": {
+																			"type": "string"
+																		}
+																	},
+																	"evidence": {
+																		"type": ["object", "null"],
+																		"additionalProperties": {}
+																	}
+																},
+																"required": [
+																	"score",
+																	"threshold",
+																	"pass",
+																	"signals",
+																	"evidence"
+																]
+															},
+															"extraction": {
+																"type": ["object", "null"],
+																"properties": {
+																	"fields": {
+																		"type": ["object", "null"],
+																		"additionalProperties": {
+																			"type": "object",
+																			"properties": {
+																				"value": {
+																					"type": ["string", "null"]
+																				},
+																				"confidence": {
+																					"type": "number",
+																					"minimum": 0,
+																					"maximum": 1
+																				},
+																				"source": {
+																					"type": "string"
+																				}
+																			},
+																			"required": ["value", "confidence"]
+																		}
+																	}
+																},
+																"required": ["fields"]
+															},
+															"validations": {
+																"type": ["array", "null"],
+																"items": {
+																	"type": "object",
+																	"properties": {
+																		"rule": {
+																			"type": "string"
+																		},
+																		"pass": {
+																			"type": "boolean"
+																		},
+																		"message": {
+																			"type": "string"
+																		}
+																	},
+																	"required": ["rule", "pass"]
+																}
+															},
+															"risk": {
+																"type": ["object", "null"],
+																"properties": {
+																	"score": {
+																		"type": ["number", "null"]
+																	},
+																	"signals": {
+																		"type": ["array", "null"],
+																		"items": {
+																			"type": "string"
+																		}
+																	}
+																},
+																"required": ["score", "signals"]
+															},
+															"decision": {
+																"type": ["string", "null"],
+																"enum": ["APPROVED", "REVIEW", "REJECTED"]
+															},
+															"decisionReason": {
+																"type": ["string", "null"]
+															},
+															"errorMessage": {
+																"type": ["string", "null"]
+															},
+															"startedAt": {
+																"type": ["string", "null"]
+															},
+															"completedAt": {
+																"type": ["string", "null"]
+															},
+															"createdAt": {
+																"type": "string"
+															},
+															"updatedAt": {
+																"type": "string"
+															}
+														},
+														"required": [
+															"id",
+															"documentId",
+															"organizationId",
+															"status",
+															"workflowInstanceId",
+															"classification",
+															"visualValidation",
+															"extraction",
+															"validations",
+															"risk",
+															"decision",
+															"decisionReason",
+															"errorMessage",
+															"startedAt",
+															"completedAt",
+															"createdAt",
+															"updatedAt"
+														]
+													}
+												},
+												"total": {
+													"type": "number"
+												},
+												"limit": {
+													"type": "number"
+												},
+												"offset": {
+													"type": "number"
+												}
+											},
+											"required": ["data", "total", "limit", "offset"]
+										}
+									},
+									"required": ["success", "result"]
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "Unauthorized",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"success": {
+											"type": "boolean",
+											"enum": [false]
+										},
+										"error": {
+											"type": "string"
+										}
+									},
+									"required": ["success", "error"]
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/jobs/{id}": {
+			"get": {
+				"tags": ["Jobs"],
+				"summary": "Get processing job by ID",
+				"description": "Retrieve processing job details including classification, validation, and extraction results",
+				"operationId": "job-read",
+				"parameters": [
+					{
+						"schema": {
+							"type": "string",
+							"description": "Job ID"
+						},
+						"required": true,
+						"description": "Job ID",
+						"name": "id",
+						"in": "path"
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Job found",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"success": {
+											"type": "boolean",
+											"enum": [true]
+										},
+										"result": {
+											"type": "object",
+											"properties": {
+												"id": {
+													"type": "string"
+												},
+												"documentId": {
+													"type": "string"
+												},
+												"organizationId": {
+													"type": "string"
+												},
+												"status": {
+													"type": "string",
+													"enum": [
+														"PENDING",
+														"PROCESSING",
+														"COMPLETED",
+														"FAILED"
+													]
+												},
+												"workflowInstanceId": {
+													"type": ["string", "null"]
+												},
+												"classification": {
+													"type": ["object", "null"],
+													"properties": {
+														"docFamily": {
+															"type": ["string", "null"]
+														},
+														"docType": {
+															"type": ["string", "null"]
+														},
+														"confidence": {
+															"type": ["number", "null"]
+														},
+														"evidence": {
+															"type": ["object", "null"],
+															"additionalProperties": {}
+														}
+													},
+													"required": [
+														"docFamily",
+														"docType",
+														"confidence",
+														"evidence"
+													]
+												},
+												"visualValidation": {
+													"type": ["object", "null"],
+													"properties": {
+														"score": {
+															"type": ["number", "null"]
+														},
+														"threshold": {
+															"type": ["number", "null"]
+														},
+														"pass": {
+															"type": ["boolean", "null"]
+														},
+														"signals": {
+															"type": ["array", "null"],
+															"items": {
+																"type": "string"
+															}
+														},
+														"evidence": {
+															"type": ["object", "null"],
+															"additionalProperties": {}
+														}
+													},
+													"required": [
+														"score",
+														"threshold",
+														"pass",
+														"signals",
+														"evidence"
+													]
+												},
+												"extraction": {
+													"type": ["object", "null"],
+													"properties": {
+														"fields": {
+															"type": ["object", "null"],
+															"additionalProperties": {
+																"type": "object",
+																"properties": {
+																	"value": {
+																		"type": ["string", "null"]
+																	},
+																	"confidence": {
+																		"type": "number",
+																		"minimum": 0,
+																		"maximum": 1
+																	},
+																	"source": {
+																		"type": "string"
+																	}
+																},
+																"required": ["value", "confidence"]
+															}
+														}
+													},
+													"required": ["fields"]
+												},
+												"validations": {
+													"type": ["array", "null"],
+													"items": {
+														"type": "object",
+														"properties": {
+															"rule": {
+																"type": "string"
+															},
+															"pass": {
+																"type": "boolean"
+															},
+															"message": {
+																"type": "string"
+															}
+														},
+														"required": ["rule", "pass"]
+													}
+												},
+												"risk": {
+													"type": ["object", "null"],
+													"properties": {
+														"score": {
+															"type": ["number", "null"]
+														},
+														"signals": {
+															"type": ["array", "null"],
+															"items": {
+																"type": "string"
+															}
+														}
+													},
+													"required": ["score", "signals"]
+												},
+												"decision": {
+													"type": ["string", "null"],
+													"enum": ["APPROVED", "REVIEW", "REJECTED"]
+												},
+												"decisionReason": {
+													"type": ["string", "null"]
+												},
+												"errorMessage": {
+													"type": ["string", "null"]
+												},
+												"startedAt": {
+													"type": ["string", "null"]
+												},
+												"completedAt": {
+													"type": ["string", "null"]
+												},
+												"createdAt": {
+													"type": "string"
+												},
+												"updatedAt": {
+													"type": "string"
+												}
+											},
+											"required": [
+												"id",
+												"documentId",
+												"organizationId",
+												"status",
+												"workflowInstanceId",
+												"classification",
+												"visualValidation",
+												"extraction",
+												"validations",
+												"risk",
+												"decision",
+												"decisionReason",
+												"errorMessage",
+												"startedAt",
+												"completedAt",
+												"createdAt",
+												"updatedAt"
+											]
+										}
+									},
+									"required": ["success", "result"]
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "Unauthorized",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"success": {
+											"type": "boolean",
+											"enum": [false]
+										},
+										"error": {
+											"type": "string"
+										}
+									},
+									"required": ["success", "error"]
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "Job not found",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"success": {
+											"type": "boolean",
+											"enum": [false]
+										},
+										"error": {
+											"type": "string"
+										}
+									},
+									"required": ["success", "error"]
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	},
+	"webhooks": {}
+}

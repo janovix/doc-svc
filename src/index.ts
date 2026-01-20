@@ -1,12 +1,13 @@
 import { ApiException, fromHono } from "chanfana";
 import { Hono } from "hono";
 import * as Sentry from "@sentry/cloudflare";
-import { tasksRouter } from "./endpoints/tasks/router";
 import { ContentfulStatusCode } from "hono/utils/http-status";
-import { DummyEndpoint } from "./endpoints/dummyEndpoint";
 import pkg from "../package.json";
 import { getOpenApiInfo, getScalarHtml, type AppMeta } from "./app-meta";
 import type { Bindings } from "./types";
+import { documentsRouter } from "./endpoints/documents/router";
+import { jobsRouter } from "./endpoints/jobs/router";
+import { internalJobsRouter } from "./endpoints/jobs/internal";
 
 // Start a Hono app
 const app = new Hono<{ Bindings: Bindings }>();
@@ -63,11 +64,13 @@ app.get("/docsz", (c) => {
 	return c.html(getScalarHtml(appMeta));
 });
 
-// Register Tasks Sub router
-openapi.route("/tasks", tasksRouter);
+// Register API routes
+openapi.route("/documents", documentsRouter);
+openapi.route("/jobs", jobsRouter);
 
-// Register other endpoints
-openapi.post("/dummy/:slug", DummyEndpoint);
+// Internal routes (for worker-to-worker communication)
+// These are not exposed in OpenAPI docs
+app.route("/internal/jobs", internalJobsRouter);
 
 // Sentry is enabled only when SENTRY_DSN environment variable is set.
 // Configure it via wrangler secrets: `wrangler secret put SENTRY_DSN`

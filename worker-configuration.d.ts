@@ -6,8 +6,8 @@ declare namespace Cloudflare {
 		mainModule: typeof import("./src/index");
 	}
 	interface Env {
-		TASKS_KV: KVNamespace;
-		ENVIRONMENT: "development";
+		KV: KVNamespace;
+		ENVIRONMENT: "dev";
 		DB: D1Database;
 		CF_VERSION_METADATA: WorkerVersionMetadata;
 	}

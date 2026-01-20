@@ -19,14 +19,14 @@
 	"d1_databases": [
 		{
 			"binding": "DB",
-			"database_name": "backend-template",
-			"database_id": "a11e8120-0199-49ba-8366-81782f959fc6",
+			"database_name": "doc",
+			"database_id": "186617aa-3eba-4600-a5c8-b58e1a5be49a",
 		},
 	],
 	"kv_namespaces": [
 		{
-			"binding": "TASKS_KV",
-			"id": "8252ec2489ef4e4db468bef9b81c9f3b",
+			"binding": "KV",
+			"id": "4b6440817f2c46208a8cf66b6283847b",
 		},
 	],
 }

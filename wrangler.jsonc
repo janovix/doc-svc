@@ -4,10 +4,7 @@
 	"name": "doc-svc",
 	"upload_source_maps": true,
 	"workers_dev": true,
-	"compatibility_flags": [
-		"nodejs_als",
-		// "nodejs_compat"
-	],
+	"compatibility_flags": ["nodejs_als"],
 	"version_metadata": {
 		"binding": "CF_VERSION_METADATA",
 	},
@@ -16,8 +13,8 @@
 	},
 	"vars": {
 		"ENVIRONMENT": "dev",
-		"AUTH_JWKS_CACHE_TTL": "3600",
 		"AUTH_SERVICE_URL": "https://auth-svc.janovix.workers.dev",
+		"AUTH_JWKS_CACHE_TTL": "3600",
 	},
 	"d1_databases": [
 		{
@@ -26,10 +23,24 @@
 			"database_id": "257f7898-b696-4d21-992b-ba90c0691226",
 		},
 	],
-	"kv_namespaces": [
+	"r2_buckets": [
 		{
-			"binding": "TASKS_KV",
-			"id": "298d4bb9433e4e249f71041233201b3d",
+			"binding": "R2_BUCKET",
+			"bucket_name": "doc-dev",
+		},
+	],
+	"queues": {
+		"producers": [
+			{
+				"binding": "DOC_PROCESSING_QUEUE",
+				"queue": "doc-processing-dev",
+			},
+		],
+	},
+	"services": [
+		{
+			"binding": "AUTH_SERVICE",
+			"service": "auth-svc",
 		},
 	],
 }
