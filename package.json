@@ -73,6 +73,7 @@
 		"prisma:generate": "prisma generate",
 		"schema": "npx chanfana",
 		"seedLocalDb": "wrangler d1 migrations apply DB --local",
+		"seed:validate": "node ./scripts/seed/validate.mjs",
 		"release": "semantic-release",
 		"typecheck": "tsc -p tsconfig.json && tsc -p tests/tsconfig.json",
 		"vitest": "vitest --config tests/vitest.config.mts",
