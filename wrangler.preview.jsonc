@@ -1,11 +1,20 @@
 {
 	"compatibility_date": "2025-10-08",
 	"main": "src/index.ts",
-	"name": "backend-template",
+	"name": "doc-svc-preview",
 	"upload_source_maps": true,
 	"workers_dev": true,
+	"compatibility_flags": ["nodejs_als"],
+	"version_metadata": {
+		"binding": "CF_VERSION_METADATA",
+	},
 	"observability": {
 		"enabled": true,
+	},
+	"vars": {
+		"ENVIRONMENT": "preview",
+		"AUTH_SERVICE_URL": "https://auth-svc-preview.janovix.workers.dev",
+		"AUTH_JWKS_CACHE_TTL": "3600",
 	},
 	"d1_databases": [
 		{
@@ -14,10 +23,30 @@
 			"database_id": "37039904-03fe-42b7-8770-4348cfa5f87b",
 		},
 	],
-	"kv_namespaces": [
+	"r2_buckets": [
 		{
-			"binding": "KV",
-			"id": "aee63b29dbb94882a5a753fe104d0b05",
+			"binding": "R2_BUCKET",
+			"bucket_name": "doc-preview",
+		},
+	],
+	"durable_objects": {
+		"bindings": [
+			{
+				"name": "UPLOAD_LINK_EVENTS",
+				"class_name": "UploadLinkEventBroadcaster",
+			},
+		],
+	},
+	"migrations": [
+		{
+			"tag": "v1",
+			"new_classes": ["UploadLinkEventBroadcaster"],
+		},
+	],
+	"services": [
+		{
+			"binding": "AUTH_SERVICE",
+			"service": "auth-svc-preview",
 		},
 	],
 }

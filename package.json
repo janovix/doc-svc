@@ -17,6 +17,8 @@
 		"publish": true
 	},
 	"dependencies": {
+		"@aws-sdk/client-s3": "^3.750.0",
+		"@aws-sdk/s3-request-presigner": "^3.750.0",
 		"@prisma/adapter-d1": "^6.17.1",
 		"@prisma/client": "^6.17.1",
 		"@sentry/cloudflare": "^10.32.1",
@@ -59,7 +61,7 @@
 		"deploy:prod": "wrangler deploy --config wrangler.prod.jsonc --outdir dist --upload-source-maps --var SENTRY_RELEASE:$(sentry-cli releases propose-version)",
 		"deploy:dev": "wrangler deploy --config wrangler.jsonc --outdir dist --upload-source-maps --var SENTRY_RELEASE:$(sentry-cli releases propose-version)",
 		"dev": "pnpm run seedLocalDb && wrangler dev",
-		"dev:local": "pnpm run seedLocalDb && wrangler dev --config wrangler.local.jsonc --port 8788",
+		"dev:local": "pnpm run seedLocalDb && wrangler dev --config wrangler.local.jsonc --port 8796",
 		"format": "prettier . --write",
 		"format:check": "prettier . --check",
 		"lint": "eslint .",

@@ -1,6 +1,8 @@
 /**
  * Document List Endpoint
  * GET /documents
+ *
+ * Requires JWT authentication with organization context.
  */
 
 import { OpenAPIRoute, contentJson } from "chanfana";
@@ -18,8 +20,10 @@ export class DocumentList extends OpenAPIRoute {
 	schema = {
 		tags: ["Documents"],
 		summary: "List documents",
-		description: "List documents for the organization with pagination",
+		description:
+			"List documents for the organization with pagination. Requires JWT authentication.",
 		operationId: "document-list",
+		security: [{ bearerAuth: [] }],
 		request: {
 			query: DocumentFiltersSchema,
 		},
@@ -39,7 +43,7 @@ export class DocumentList extends OpenAPIRoute {
 				),
 			},
 			"401": {
-				description: "Unauthorized",
+				description: "Unauthorized - Missing or invalid JWT token",
 				...contentJson(
 					z.object({
 						success: z.literal(false),
@@ -47,15 +51,54 @@ export class DocumentList extends OpenAPIRoute {
 					}),
 				),
 			},
+			"409": {
+				description: "Organization required - User must select an organization",
+				...contentJson(
+					z.object({
+						success: z.literal(false),
+						error: z.string(),
+						code: z.string(),
+					}),
+				),
+			},
 		},
 	};
 
 	async handle(c: AppContext) {
-		// TODO: Add authentication middleware
-		const organizationId = c.req.header("x-organization-id") || "org_demo";
+		// Get user and organization from JWT (set by auth middleware)
+		const user = c.get("user");
+		const organization = c.get("organization");
+
+		// Verify authentication
+		if (!user) {
+			return c.json(
+				{
+					success: false,
+					error: "Unauthorized",
+					message: "Authentication required",
+				},
+				401,
+			);
+		}
+
+		// Verify organization is set in JWT
+		if (!organization) {
+			return c.json(
+				{
+					success: false,
+					error: "Organization Required",
+					code: "ORGANIZATION_REQUIRED",
+					message:
+						"An active organization must be selected. Please switch to an organization first.",
+				},
+				409,
+			);
+		}
+
+		const organizationId = organization.id;
 
 		const data = await this.getValidatedData<typeof this.schema>();
-		const { limit, offset } = data.query;
+		const { limit, offset, uploadLinkId } = data.query;
 
 		const prisma = getPrisma(c.env.DB);
 		const documentRepo = new DocumentRepository(prisma);
@@ -64,6 +107,7 @@ export class DocumentList extends OpenAPIRoute {
 		const result = await documentService.list(organizationId, {
 			limit,
 			offset,
+			uploadLinkId,
 		});
 
 		return c.json({
@@ -72,11 +116,16 @@ export class DocumentList extends OpenAPIRoute {
 				data: result.data.map((doc) => ({
 					id: doc.id,
 					organizationId: doc.organizationId,
+					uploadLinkId: doc.uploadLinkId,
 					fileName: doc.fileName,
 					fileSize: doc.fileSize,
-					fileType: doc.fileType,
+					pageCount: doc.pageCount,
 					sha256Hash: doc.sha256Hash,
-					previewKeys: doc.previewKeys,
+					originalPdfs: doc.originalPdfs,
+					originalImages: doc.originalImages,
+					rasterizedImages: doc.rasterizedImages,
+					finalPdfKey: doc.finalPdfKey,
+					documentType: doc.documentType,
 					createdBy: doc.createdBy,
 					createdAt: doc.createdAt.toISOString(),
 					updatedAt: doc.updatedAt.toISOString(),

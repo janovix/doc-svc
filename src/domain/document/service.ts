@@ -1,5 +1,5 @@
 /**
- * Document Service
+ * Document Service (MVP)
  * Business logic for document management
  */
 
@@ -33,6 +33,17 @@ export class DocumentService {
 	}
 
 	/**
+	 * Get document by ID (without org check - for internal use)
+	 */
+	async getInternal(id: string): Promise<DocumentEntity> {
+		const doc = await this.repository.getByIdInternal(id);
+		if (!doc) {
+			throw new Error("DOCUMENT_NOT_FOUND");
+		}
+		return doc;
+	}
+
+	/**
 	 * Check if a document with the same hash already exists
 	 */
 	async checkDuplicate(
@@ -50,6 +61,20 @@ export class DocumentService {
 		filters: DocumentFilters,
 	): Promise<ListResult<DocumentEntity>> {
 		return this.repository.list(organizationId, filters);
+	}
+
+	/**
+	 * List documents for an upload link
+	 */
+	async listByUploadLink(uploadLinkId: string): Promise<DocumentEntity[]> {
+		return this.repository.listByUploadLink(uploadLinkId);
+	}
+
+	/**
+	 * Count documents for an upload link
+	 */
+	async countByUploadLink(uploadLinkId: string): Promise<number> {
+		return this.repository.countByUploadLink(uploadLinkId);
 	}
 
 	/**

@@ -1,5 +1,5 @@
 /**
- * Document Repository
+ * Document Repository (MVP)
  * Data access layer for documents
  */
 
@@ -10,6 +10,7 @@ import type {
 	DocumentFilters,
 	ListResult,
 } from "./types";
+import type { DocumentType } from "../../types";
 import { generateDocumentId } from "../../lib/id-generator";
 
 /**
@@ -18,12 +19,16 @@ import { generateDocumentId } from "../../lib/id-generator";
 function mapToEntity(doc: {
 	id: string;
 	organizationId: string;
-	originalFileKey: string;
+	uploadLinkId: string | null;
 	fileName: string;
 	fileSize: number;
-	fileType: string;
+	pageCount: number;
 	sha256Hash: string;
-	previewKeys: string | null;
+	originalPdfs: string | null;
+	originalImages: string | null;
+	rasterizedImages: string;
+	finalPdfKey: string;
+	documentType: string | null;
 	createdBy: string;
 	createdAt: Date;
 	updatedAt: Date;
@@ -31,12 +36,16 @@ function mapToEntity(doc: {
 	return {
 		id: doc.id,
 		organizationId: doc.organizationId,
-		originalFileKey: doc.originalFileKey,
+		uploadLinkId: doc.uploadLinkId,
 		fileName: doc.fileName,
 		fileSize: doc.fileSize,
-		fileType: doc.fileType,
+		pageCount: doc.pageCount,
 		sha256Hash: doc.sha256Hash,
-		previewKeys: doc.previewKeys ? JSON.parse(doc.previewKeys) : null,
+		originalPdfs: doc.originalPdfs ? JSON.parse(doc.originalPdfs) : null,
+		originalImages: doc.originalImages ? JSON.parse(doc.originalImages) : null,
+		rasterizedImages: JSON.parse(doc.rasterizedImages),
+		finalPdfKey: doc.finalPdfKey,
+		documentType: doc.documentType as DocumentType | null,
 		createdBy: doc.createdBy,
 		createdAt: doc.createdAt,
 		updatedAt: doc.updatedAt,
@@ -50,21 +59,27 @@ export class DocumentRepository {
 	 * Create a new document
 	 */
 	async create(input: DocumentCreateInput): Promise<DocumentEntity> {
-		const id = generateDocumentId();
+		const id = input.id || generateDocumentId();
 		const now = new Date();
 
 		const doc = await this.prisma.document.create({
 			data: {
 				id,
 				organizationId: input.organizationId,
-				originalFileKey: input.originalFileKey,
+				uploadLinkId: input.uploadLinkId || null,
 				fileName: input.fileName,
 				fileSize: input.fileSize,
-				fileType: input.fileType,
+				pageCount: input.pageCount,
 				sha256Hash: input.sha256Hash,
-				previewKeys: input.previewKeys
-					? JSON.stringify(input.previewKeys)
+				originalPdfs: input.originalPdfs
+					? JSON.stringify(input.originalPdfs)
 					: null,
+				originalImages: input.originalImages
+					? JSON.stringify(input.originalImages)
+					: null,
+				rasterizedImages: JSON.stringify(input.rasterizedImages),
+				finalPdfKey: input.finalPdfKey,
+				documentType: input.documentType || null,
 				createdBy: input.createdBy,
 				createdAt: now,
 				updatedAt: now,
@@ -86,6 +101,17 @@ export class DocumentRepository {
 				id,
 				organizationId,
 			},
+		});
+
+		return doc ? mapToEntity(doc) : null;
+	}
+
+	/**
+	 * Get document by ID (without org check - for internal use)
+	 */
+	async getByIdInternal(id: string): Promise<DocumentEntity | null> {
+		const doc = await this.prisma.document.findUnique({
+			where: { id },
 		});
 
 		return doc ? mapToEntity(doc) : null;
@@ -115,18 +141,21 @@ export class DocumentRepository {
 		organizationId: string,
 		filters: DocumentFilters,
 	): Promise<ListResult<DocumentEntity>> {
-		const { limit = 20, offset = 0 } = filters;
+		const { limit = 20, offset = 0, uploadLinkId } = filters;
+
+		const where = {
+			organizationId,
+			...(uploadLinkId ? { uploadLinkId } : {}),
+		};
 
 		const [docs, total] = await Promise.all([
 			this.prisma.document.findMany({
-				where: { organizationId },
+				where,
 				orderBy: { createdAt: "desc" },
 				take: limit,
 				skip: offset,
 			}),
-			this.prisma.document.count({
-				where: { organizationId },
-			}),
+			this.prisma.document.count({ where }),
 		]);
 
 		return {
@@ -135,6 +164,27 @@ export class DocumentRepository {
 			limit,
 			offset,
 		};
+	}
+
+	/**
+	 * List documents by upload link ID
+	 */
+	async listByUploadLink(uploadLinkId: string): Promise<DocumentEntity[]> {
+		const docs = await this.prisma.document.findMany({
+			where: { uploadLinkId },
+			orderBy: { createdAt: "desc" },
+		});
+
+		return docs.map(mapToEntity);
+	}
+
+	/**
+	 * Count documents by upload link ID
+	 */
+	async countByUploadLink(uploadLinkId: string): Promise<number> {
+		return this.prisma.document.count({
+			where: { uploadLinkId },
+		});
 	}
 
 	/**

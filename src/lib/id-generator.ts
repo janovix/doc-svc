@@ -21,20 +21,31 @@ function generateRandomId(length: number): string {
  * ID Prefixes for different entity types
  */
 export const ID_PREFIXES = {
+	DOC: "doc_",
 	DOCUMENT: "doc_",
-	JOB: "job_",
+	LINK: "lnk_",
+	UPLOAD_LINK: "lnk_",
 } as const;
+
+export type IdType = keyof typeof ID_PREFIXES;
+
+/**
+ * Generate an ID with a specific prefix
+ */
+export function generateId(type: IdType): string {
+	return `${ID_PREFIXES[type]}${generateRandomId(ID_LENGTH)}`;
+}
 
 /**
  * Generate a document ID
  */
 export function generateDocumentId(): string {
-	return `${ID_PREFIXES.DOCUMENT}${generateRandomId(ID_LENGTH)}`;
+	return generateId("DOC");
 }
 
 /**
- * Generate a processing job ID
+ * Generate an upload link ID
  */
-export function generateJobId(): string {
-	return `${ID_PREFIXES.JOB}${generateRandomId(ID_LENGTH)}`;
+export function generateUploadLinkId(): string {
+	return generateId("LINK");
 }

@@ -21,6 +21,7 @@ export default defineWorkersConfig({
 			"@prisma/adapter-d1",
 			"chanfana",
 			"@asteasolutions/zod-to-openapi",
+			"jose",
 		],
 	},
 	test: {

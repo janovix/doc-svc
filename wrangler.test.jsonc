@@ -18,7 +18,7 @@
 			"database_id": "test-database-id",
 		},
 	],
-	// No service bindings, R2, or queues for tests - mock as needed
+	// Note: Durable Objects are mocked in tests via vitest-pool-workers
 	"vars": {
 		"ENVIRONMENT": "test",
 		"AUTH_SERVICE_URL": "https://auth-svc.test",

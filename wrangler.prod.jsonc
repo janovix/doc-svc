@@ -1,12 +1,9 @@
 {
 	"compatibility_date": "2025-10-08",
 	"main": "src/index.ts",
-	"name": "backend-template-prod",
+	"name": "doc-svc-prod",
 	"upload_source_maps": true,
-	"compatibility_flags": [
-		"nodejs_als",
-		// "nodejs_compat"
-	],
+	"compatibility_flags": ["nodejs_als"],
 	"version_metadata": {
 		"binding": "CF_VERSION_METADATA",
 	},
@@ -15,6 +12,8 @@
 	},
 	"vars": {
 		"ENVIRONMENT": "production",
+		"AUTH_SERVICE_URL": "https://auth-svc.janovix.com",
+		"AUTH_JWKS_CACHE_TTL": "3600",
 	},
 	"d1_databases": [
 		{
@@ -23,10 +22,30 @@
 			"database_id": "186617aa-3eba-4600-a5c8-b58e1a5be49a",
 		},
 	],
-	"kv_namespaces": [
+	"r2_buckets": [
 		{
-			"binding": "KV",
-			"id": "4b6440817f2c46208a8cf66b6283847b",
+			"binding": "R2_BUCKET",
+			"bucket_name": "doc-prod",
+		},
+	],
+	"durable_objects": {
+		"bindings": [
+			{
+				"name": "UPLOAD_LINK_EVENTS",
+				"class_name": "UploadLinkEventBroadcaster",
+			},
+		],
+	},
+	"migrations": [
+		{
+			"tag": "v1",
+			"new_classes": ["UploadLinkEventBroadcaster"],
+		},
+	],
+	"services": [
+		{
+			"binding": "AUTH_SERVICE",
+			"service": "auth-svc-prod",
 		},
 	],
 }
