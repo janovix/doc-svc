@@ -103,6 +103,10 @@ export type Bindings = Env & {
 	// Session token signing
 	/** Secret for signing session tokens */
 	SESSION_TOKEN_SECRET?: string;
+
+	// CORS configuration
+	/** Comma-separated list of trusted origin patterns for CORS */
+	TRUSTED_ORIGINS?: string;
 };
 
 export type AppContext = Context<{

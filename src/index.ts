@@ -1,6 +1,5 @@
 import { ApiException, fromHono } from "chanfana";
 import { Hono } from "hono";
-import { cors } from "hono/cors";
 import * as Sentry from "@sentry/cloudflare";
 import { ContentfulStatusCode } from "hono/utils/http-status";
 import pkg from "../package.json";
@@ -9,23 +8,10 @@ import type { Bindings } from "./types";
 import { documentsRouter } from "./endpoints/documents/router";
 import { uploadLinksRouter } from "./endpoints/upload-links/router";
 import { authMiddleware, type AuthVariables } from "./middleware/auth";
+import { corsMiddleware } from "./middleware/cors";
 
 // Export Durable Object class for Cloudflare to discover
 export { UploadLinkEventBroadcaster } from "./durable-objects";
-
-// Trusted origins for CORS
-const TRUSTED_ORIGINS = [
-	// Production
-	"https://aml.janovix.com",
-	"https://scan.janovix.com",
-	// Development/Staging
-	"https://aml-local.janovix.workers.dev",
-	"https://scan-local.janovix.workers.dev",
-	// Local development
-	"http://localhost:3000",
-	"http://localhost:3001",
-	"http://localhost:3002",
-];
 
 // Start a Hono app with auth variables
 const app = new Hono<{
@@ -39,28 +25,8 @@ const appMeta: AppMeta = {
 	description: pkg.description,
 };
 
-// CORS middleware
-app.use(
-	"*",
-	cors({
-		origin: (origin) => {
-			// Allow requests with no origin (e.g., server-to-server, mobile apps)
-			if (!origin) return null;
-			// Check if origin is in trusted list
-			if (TRUSTED_ORIGINS.includes(origin)) return origin;
-			// Allow any *.janovix.workers.dev subdomain for staging/preview
-			if (
-				origin.endsWith(".janovix.workers.dev") ||
-				origin.endsWith("janovix.com")
-			)
-				return origin;
-			return null;
-		},
-		allowHeaders: ["Content-Type", "Authorization"],
-		allowMethods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-		credentials: true,
-	}),
-);
+// CORS middleware using TRUSTED_ORIGINS environment variable
+app.use("*", corsMiddleware());
 
 // Auth middleware - optional so public routes work, protected routes check auth themselves
 app.use("*", authMiddleware({ optional: true }));

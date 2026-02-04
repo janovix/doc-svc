@@ -12,6 +12,7 @@
 	},
 	"vars": {
 		"ENVIRONMENT": "production",
+		"TRUSTED_ORIGINS": "*.janovix.com",
 		"AUTH_SERVICE_URL": "https://auth-svc.janovix.com",
 		"AUTH_JWKS_CACHE_TTL": "3600",
 		"R2_BUCKET_NAME": "doc",
