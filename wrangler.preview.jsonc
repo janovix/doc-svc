@@ -15,6 +15,7 @@
 		"ENVIRONMENT": "preview",
 		"AUTH_SERVICE_URL": "https://auth-svc-preview.janovix.workers.dev",
 		"AUTH_JWKS_CACHE_TTL": "3600",
+		"R2_BUCKET_NAME": "doc-preview",
 	},
 	"d1_databases": [
 		{
