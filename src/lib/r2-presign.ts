@@ -36,6 +36,12 @@ export interface R2PresignConfig {
 
 /**
  * Create an S3 client configured for Cloudflare R2
+ *
+ * When a custom domain is configured (e.g. doc-storage-dev.janovix.com),
+ * the domain is already bound to a specific bucket. The S3 SDK with
+ * forcePathStyle adds the bucket name as a path prefix (/{bucket}/key),
+ * so we use middleware to strip it before signing. This produces clean
+ * URLs like: https://doc-storage-dev.janovix.com/documents/...
  */
 export function createR2Client(config: R2PresignConfig): S3Client {
 	// Use custom domain if provided, otherwise fallback to default R2 endpoint
@@ -43,7 +49,7 @@ export function createR2Client(config: R2PresignConfig): S3Client {
 		? `https://${config.publicDomain}`
 		: `https://${config.accountId}.r2.cloudflarestorage.com`;
 
-	return new S3Client({
+	const client = new S3Client({
 		region: "auto",
 		endpoint,
 		forcePathStyle: true,
@@ -52,6 +58,28 @@ export function createR2Client(config: R2PresignConfig): S3Client {
 			secretAccessKey: config.secretAccessKey,
 		},
 	});
+
+	// When using a custom domain, strip the bucket name from the URL path.
+	// R2 custom domains are already bound to a specific bucket, so the
+	// bucket name must not appear in the path. This runs in the "build"
+	// step — after serialization constructs the path but before signing.
+	if (config.publicDomain) {
+		client.middlewareStack.add(
+			(next) => async (args) => {
+				const request = args.request as { path?: string };
+				if (request.path) {
+					const bucketPrefix = `/${config.bucketName}`;
+					if (request.path.startsWith(bucketPrefix)) {
+						request.path = request.path.slice(bucketPrefix.length) || "/";
+					}
+				}
+				return next(args);
+			},
+			{ step: "build", name: "r2StripBucketFromPath" },
+		);
+	}
+
+	return client;
 }
 
 /**
