@@ -57,6 +57,13 @@ export function createR2Client(config: R2PresignConfig): S3Client {
 			accessKeyId: config.accessKeyId,
 			secretAccessKey: config.secretAccessKey,
 		},
+		// Disable automatic CRC32 checksum calculation. The SDK computes
+		// checksums for an empty body at presign time, but the actual upload
+		// carries real content with a different CRC32 — causing R2 to reject
+		// the request with a checksum-mismatch error (surfaced as CORS in
+		// the browser because the error response lacks CORS headers).
+		requestChecksumCalculation: "WHEN_REQUIRED",
+		responseChecksumValidation: "WHEN_REQUIRED",
 	});
 
 	// When using a custom domain, strip the bucket name from the URL path.
