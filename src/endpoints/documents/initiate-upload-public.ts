@@ -156,6 +156,7 @@ export class InitiateUploadPublic extends OpenAPIRoute {
 			R2_ACCESS_KEY_ID,
 			R2_SECRET_ACCESS_KEY,
 			R2_BUCKET_NAME,
+			R2_PUBLIC_DOMAIN,
 			TURNSTILE_SECRET_KEY,
 			SESSION_TOKEN_SECRET,
 		} = c.env;
@@ -265,6 +266,7 @@ export class InitiateUploadPublic extends OpenAPIRoute {
 			accessKeyId: R2_ACCESS_KEY_ID,
 			secretAccessKey: R2_SECRET_ACCESS_KEY,
 			bucketName: R2_BUCKET_NAME,
+			publicDomain: R2_PUBLIC_DOMAIN,
 		});
 
 		// Generate presigned URLs (1 hour expiry)

@@ -240,6 +240,7 @@ export class GetDocumentUrls extends OpenAPIRoute {
 			R2_ACCESS_KEY_ID,
 			R2_SECRET_ACCESS_KEY,
 			R2_BUCKET_NAME,
+			R2_PUBLIC_DOMAIN,
 		} = c.env;
 
 		if (
@@ -278,6 +279,7 @@ export class GetDocumentUrls extends OpenAPIRoute {
 			accessKeyId: R2_ACCESS_KEY_ID,
 			secretAccessKey: R2_SECRET_ACCESS_KEY,
 			bucketName: R2_BUCKET_NAME,
+			publicDomain: R2_PUBLIC_DOMAIN,
 		});
 
 		// Presigned URL expiry (1 hour)

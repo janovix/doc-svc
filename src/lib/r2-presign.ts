@@ -31,15 +31,21 @@ export interface R2PresignConfig {
 	accessKeyId: string;
 	secretAccessKey: string;
 	bucketName: string;
+	publicDomain?: string;
 }
 
 /**
  * Create an S3 client configured for Cloudflare R2
  */
 export function createR2Client(config: R2PresignConfig): S3Client {
+	// Use custom domain if provided, otherwise fallback to default R2 endpoint
+	const endpoint = config.publicDomain
+		? `https://${config.publicDomain}`
+		: `https://${config.accountId}.r2.cloudflarestorage.com`;
+
 	return new S3Client({
 		region: "auto",
-		endpoint: `https://${config.accountId}.r2.cloudflarestorage.com`,
+		endpoint,
 		credentials: {
 			accessKeyId: config.accessKeyId,
 			secretAccessKey: config.secretAccessKey,

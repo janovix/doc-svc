@@ -95,6 +95,8 @@ export type Bindings = Env & {
 	R2_SECRET_ACCESS_KEY?: string;
 	/** R2 Bucket Name */
 	R2_BUCKET_NAME?: string;
+	/** R2 Public Custom Domain (e.g., doc-storage-dev.janovix.com) */
+	R2_PUBLIC_DOMAIN?: string;
 
 	// Turnstile configuration for public uploads
 	/** Cloudflare Turnstile Secret Key */
