@@ -44,10 +44,13 @@ export interface R2PresignConfig {
  * URLs like: https://doc-storage-dev.janovix.com/documents/...
  */
 export function createR2Client(config: R2PresignConfig): S3Client {
-	// Use custom domain if provided, otherwise fallback to default R2 endpoint
-	const endpoint = config.publicDomain
-		? `https://${config.publicDomain}`
-		: `https://${config.accountId}.r2.cloudflarestorage.com`;
+	// Always use the standard R2 S3 API endpoint for presigned URLs.
+	// R2 custom domains serve content through Cloudflare's CDN and do NOT
+	// support S3 signature validation — presigned PUT/GET requests return
+	// 401 Unauthorized. The publicDomain field is kept in the config for
+	// potential future use (e.g. constructing public read URLs) but must
+	// not be used as the S3 endpoint.
+	const endpoint = `https://${config.accountId}.r2.cloudflarestorage.com`;
 
 	const client = new S3Client({
 		region: "auto",
@@ -65,26 +68,6 @@ export function createR2Client(config: R2PresignConfig): S3Client {
 		requestChecksumCalculation: "WHEN_REQUIRED",
 		responseChecksumValidation: "WHEN_REQUIRED",
 	});
-
-	// When using a custom domain, strip the bucket name from the URL path.
-	// R2 custom domains are already bound to a specific bucket, so the
-	// bucket name must not appear in the path. This runs in the "build"
-	// step — after serialization constructs the path but before signing.
-	if (config.publicDomain) {
-		client.middlewareStack.add(
-			(next) => async (args) => {
-				const request = args.request as { path?: string };
-				if (request.path) {
-					const bucketPrefix = `/${config.bucketName}`;
-					if (request.path.startsWith(bucketPrefix)) {
-						request.path = request.path.slice(bucketPrefix.length) || "/";
-					}
-				}
-				return next(args);
-			},
-			{ step: "build", name: "r2StripBucketFromPath" },
-		);
-	}
 
 	return client;
 }
