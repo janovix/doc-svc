@@ -46,6 +46,7 @@ export function createR2Client(config: R2PresignConfig): S3Client {
 	return new S3Client({
 		region: "auto",
 		endpoint,
+		forcePathStyle: true,
 		credentials: {
 			accessKeyId: config.accessKeyId,
 			secretAccessKey: config.secretAccessKey,
