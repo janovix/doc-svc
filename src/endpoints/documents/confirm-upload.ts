@@ -14,34 +14,83 @@ import { DocumentTypeSchema } from "../../domain/document/schemas";
  * Schema for confirm upload request body (MVP)
  * Supports complete file structure: original files + rasterized + final PDF
  */
-const ConfirmUploadBodySchema = z.object({
-	fileName: z.string().describe("Original file name"),
-	fileSize: z.number().int().positive().describe("Total file size in bytes"),
-	pageCount: z.number().int().positive().describe("Number of pages"),
-	sha256Hash: z.string().describe("SHA-256 hash of final PDF"),
-	// File structure (R2 keys)
-	originalPdfs: z
-		.array(z.string())
-		.optional()
-		.describe("R2 keys for original PDFs"),
-	originalImages: z
-		.array(z.string())
-		.optional()
-		.describe("R2 keys for original images"),
-	rasterizedImages: z
-		.array(z.string())
-		.min(1)
-		.describe("R2 keys for rasterized images (required)"),
-	finalPdfKey: z.string().describe("R2 key for final compiled PDF (required)"),
-	// Metadata
-	documentType: DocumentTypeSchema.optional().describe(
-		"Document type (mx_ine_front, passport, etc.)",
-	),
-	uploadLinkId: z
-		.string()
-		.optional()
-		.describe("Upload link ID if uploading via link"),
-});
+const ConfirmUploadBodySchema = z
+	.object({
+		fileName: z.string().describe("Original file name"),
+		fileSize: z.number().int().positive().describe("Total file size in bytes"),
+		pageCount: z
+			.number()
+			.int()
+			.positive()
+			.optional()
+			.describe("Number of pages (derived from rasterizedImages if omitted)"),
+		sha256Hash: z
+			.string()
+			.optional()
+			.describe("SHA-256 hash of final PDF (optional)"),
+		// File structure (R2 keys) — flat format
+		originalPdfs: z
+			.array(z.string())
+			.optional()
+			.describe("R2 keys for original PDFs"),
+		originalImages: z
+			.array(z.string())
+			.optional()
+			.describe("R2 keys for original images"),
+		rasterizedImages: z
+			.array(z.string())
+			.min(1)
+			.optional()
+			.describe("R2 keys for rasterized images"),
+		finalPdfKey: z
+			.string()
+			.optional()
+			.describe("R2 key for final compiled PDF"),
+		// Nested keys format (sent by aml frontend)
+		keys: z
+			.object({
+				originalPdfs: z.array(z.string()).optional(),
+				originalImages: z.array(z.string()).optional(),
+				rasterizedImages: z.array(z.string()).optional(),
+				finalPdf: z.string().optional(),
+			})
+			.optional()
+			.describe("Alternative nested key format"),
+		// Metadata
+		documentType: DocumentTypeSchema.optional().describe(
+			"Document type (mx_ine_front, passport, etc.)",
+		),
+		uploadLinkId: z
+			.string()
+			.optional()
+			.describe("Upload link ID if uploading via link"),
+	})
+	.transform((data) => {
+		// Normalize: merge nested `keys` into flat fields (flat takes precedence)
+		const rasterizedImages =
+			data.rasterizedImages ?? data.keys?.rasterizedImages ?? [];
+		return {
+			fileName: data.fileName,
+			fileSize: data.fileSize,
+			pageCount: data.pageCount ?? rasterizedImages.length,
+			sha256Hash: data.sha256Hash,
+			originalPdfs: data.originalPdfs ?? data.keys?.originalPdfs ?? undefined,
+			originalImages:
+				data.originalImages ?? data.keys?.originalImages ?? undefined,
+			rasterizedImages,
+			finalPdfKey: data.finalPdfKey ?? data.keys?.finalPdf ?? undefined,
+			documentType: data.documentType,
+			uploadLinkId: data.uploadLinkId,
+		};
+	})
+	.refine((data) => data.rasterizedImages.length > 0, {
+		message: "At least one rasterized image is required",
+		path: ["rasterizedImages"],
+	})
+	.refine((data) => !!data.finalPdfKey, {
+		message: "Final PDF key is required (finalPdfKey or keys.finalPdf)",
+		path: ["finalPdfKey"],
+	});
 
 /**
  * POST /documents/:id/confirm
@@ -273,11 +322,11 @@ export class ConfirmUpload extends OpenAPIRoute {
 			publicDomain: R2_PUBLIC_DOMAIN,
 		});
 
-		// Verify final PDF exists (required)
+		// Verify final PDF exists (required) — refine() guarantees finalPdfKey is defined
 		const finalPdfExists = await objectExists(
 			r2Client,
 			R2_BUCKET_NAME,
-			finalPdfKey,
+			finalPdfKey!,
 		);
 		if (!finalPdfExists) {
 			return c.json(
@@ -376,11 +425,12 @@ export class ConfirmUpload extends OpenAPIRoute {
 			fileName,
 			fileSize,
 			pageCount,
-			sha256Hash,
+			// Use placeholder if sha256Hash not provided (client-side hash is optional)
+			sha256Hash: sha256Hash || "pending",
 			originalPdfs,
 			originalImages,
 			rasterizedImages,
-			finalPdfKey,
+			finalPdfKey: finalPdfKey!, // refine() guarantees this is defined
 			documentType,
 			createdBy: userId,
 		});

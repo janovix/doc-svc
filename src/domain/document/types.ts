@@ -37,7 +37,7 @@ export interface DocumentCreateInput {
 	fileName: string;
 	fileSize: number;
 	pageCount: number;
-	sha256Hash: string;
+	sha256Hash?: string;
 	// File structure (R2 keys)
 	originalPdfs?: string[];
 	originalImages?: string[];

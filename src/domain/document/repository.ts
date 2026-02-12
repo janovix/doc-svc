@@ -70,7 +70,8 @@ export class DocumentRepository {
 				fileName: input.fileName,
 				fileSize: input.fileSize,
 				pageCount: input.pageCount,
-				sha256Hash: input.sha256Hash,
+				// Use placeholder if sha256Hash not provided (client-side hash is optional)
+				sha256Hash: input.sha256Hash || "pending",
 				originalPdfs: input.originalPdfs
 					? JSON.stringify(input.originalPdfs)
 					: null,
