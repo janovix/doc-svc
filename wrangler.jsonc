@@ -13,7 +13,7 @@
 	},
 	"vars": {
 		"ENVIRONMENT": "dev",
-		"TRUSTED_ORIGINS": "*.janovix.workers.dev,http://localhost:*",
+		"TRUSTED_ORIGINS": "https://kyc-local.janovix.workers.dev,https://aml.janovix.workers.dev,https://*.janovix.workers.dev",
 		"AUTH_SERVICE_URL": "https://auth-svc.janovix.workers.dev",
 		"AUTH_JWKS_CACHE_TTL": "3600",
 		"R2_BUCKET_NAME": "doc-dev",

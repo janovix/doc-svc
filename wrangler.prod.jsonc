@@ -12,7 +12,7 @@
 	},
 	"vars": {
 		"ENVIRONMENT": "production",
-		"TRUSTED_ORIGINS": "*.janovix.com",
+		"TRUSTED_ORIGINS": "https://kyc.janovix.com,https://aml.janovix.com",
 		"AUTH_SERVICE_URL": "https://auth-svc.janovix.com",
 		"AUTH_JWKS_CACHE_TTL": "3600",
 		"R2_BUCKET_NAME": "doc",
@@ -28,7 +28,7 @@
 	"r2_buckets": [
 		{
 			"binding": "R2_BUCKET",
-			"bucket_name": "doc-prod",
+			"bucket_name": "doc",
 		},
 	],
 	"durable_objects": {
