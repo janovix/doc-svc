@@ -1,0 +1,77 @@
+// Prisma schema for Document Processing Service (MVP)
+// Learn more about it in the docs: https://pris.ly/d/prisma-schema
+// NOTE: All column names use snake_case via @map directives for consistency
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Upload link status
+enum UploadLinkStatus {
+  ACTIVE
+  EXPIRED
+  COMPLETED
+}
+
+// Upload links - shareable links for document uploads
+model UploadLink {
+  id                 String           @id
+  organizationId     String           @map("organization_id")
+  createdBy          String           @map("created_by")
+  expiresAt          DateTime         @map("expires_at")
+  maxUploads         Int?             @map("max_uploads")
+  requiredDocuments  String?          @map("required_documents") // JSON array of required document types
+  uploadedCount      Int              @default(0) @map("uploaded_count")
+  status             UploadLinkStatus @default(ACTIVE)
+  allowMultipleFiles Boolean          @default(true) @map("allow_multiple_files")
+  metadata           String?          // JSON object for client_id, notes, etc.
+  createdAt          DateTime         @default(now()) @map("created_at")
+  updatedAt          DateTime         @updatedAt @map("updated_at")
+
+  documents Document[]
+
+  @@index([organizationId])
+  @@index([status])
+  @@index([expiresAt])
+  @@map("upload_links")
+}
+
+// Uploaded document metadata
+// Each document maintains a consistent file structure in R2:
+// - original_pdfs: Original PDF files if uploaded
+// - original_images: Original image files if uploaded
+// - rasterized_images: Always present - rasterized JPEGs for viewing
+// - final_pdf_key: Always present - compiled PDF from rasterized images
+model Document {
+  id               String  @id
+  organizationId   String  @map("organization_id")
+  uploadLinkId     String? @map("upload_link_id")
+  fileName         String  @map("file_name")
+  fileSize         Int     @map("file_size") // Total size of all files
+  pageCount        Int     @map("page_count")
+  sha256Hash       String  @map("sha256_hash") // Hash of final PDF
+  // File structure (R2 keys stored as JSON arrays/strings)
+  originalPdfs     String? @map("original_pdfs") // JSON array of R2 keys
+  originalImages   String? @map("original_images") // JSON array of R2 keys
+  rasterizedImages String  @map("rasterized_images") // JSON array of R2 keys (always present)
+  finalPdfKey      String  @map("final_pdf_key") // R2 key for compiled PDF (always present)
+  // Metadata
+  documentType     String? @map("document_type") // Optional: mx_ine_front, mx_ine_back, etc.
+  createdBy        String  @map("created_by")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  uploadLink UploadLink? @relation(fields: [uploadLinkId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([uploadLinkId])
+  @@index([sha256Hash])
+  @@index([createdAt])
+  @@map("documents")
+}

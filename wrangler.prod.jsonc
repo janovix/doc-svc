@@ -1,12 +1,9 @@
 {
 	"compatibility_date": "2025-10-08",
 	"main": "src/index.ts",
-	"name": "backend-template-prod",
+	"name": "doc-svc-prod",
 	"upload_source_maps": true,
-	"compatibility_flags": [
-		"nodejs_als",
-		// "nodejs_compat"
-	],
+	"compatibility_flags": ["nodejs_als"],
 	"version_metadata": {
 		"binding": "CF_VERSION_METADATA",
 	},
@@ -15,18 +12,43 @@
 	},
 	"vars": {
 		"ENVIRONMENT": "production",
+		"TRUSTED_ORIGINS": "https://kyc.janovix.com,https://aml.janovix.com",
+		"AUTH_SERVICE_URL": "https://auth-svc.janovix.com",
+		"AUTH_JWKS_CACHE_TTL": "3600",
+		"R2_BUCKET_NAME": "doc",
+		"R2_PUBLIC_DOMAIN": "doc-storage.janovix.com",
 	},
 	"d1_databases": [
 		{
 			"binding": "DB",
-			"database_name": "backend-template",
-			"database_id": "a11e8120-0199-49ba-8366-81782f959fc6",
+			"database_name": "doc",
+			"database_id": "186617aa-3eba-4600-a5c8-b58e1a5be49a",
 		},
 	],
-	"kv_namespaces": [
+	"r2_buckets": [
 		{
-			"binding": "TASKS_KV",
-			"id": "8252ec2489ef4e4db468bef9b81c9f3b",
+			"binding": "R2_BUCKET",
+			"bucket_name": "doc",
+		},
+	],
+	"durable_objects": {
+		"bindings": [
+			{
+				"name": "UPLOAD_LINK_EVENTS",
+				"class_name": "UploadLinkEventBroadcaster",
+			},
+		],
+	},
+	"migrations": [
+		{
+			"tag": "v1",
+			"new_classes": ["UploadLinkEventBroadcaster"],
+		},
+	],
+	"services": [
+		{
+			"binding": "AUTH_SERVICE",
+			"service": "auth-svc-prod",
 		},
 	],
 }

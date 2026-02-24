@@ -1,21 +1,35 @@
 import { ApiException, fromHono } from "chanfana";
 import { Hono } from "hono";
 import * as Sentry from "@sentry/cloudflare";
-import { tasksRouter } from "./endpoints/tasks/router";
 import { ContentfulStatusCode } from "hono/utils/http-status";
-import { DummyEndpoint } from "./endpoints/dummyEndpoint";
 import pkg from "../package.json";
 import { getOpenApiInfo, getScalarHtml, type AppMeta } from "./app-meta";
 import type { Bindings } from "./types";
+import { documentsRouter } from "./endpoints/documents/router";
+import { uploadLinksRouter } from "./endpoints/upload-links/router";
+import { authMiddleware, type AuthVariables } from "./middleware/auth";
+import { corsMiddleware } from "./middleware/cors";
 
-// Start a Hono app
-const app = new Hono<{ Bindings: Bindings }>();
+// Export Durable Object class for Cloudflare to discover
+export { UploadLinkEventBroadcaster } from "./durable-objects";
+
+// Start a Hono app with auth variables
+const app = new Hono<{
+	Bindings: Bindings;
+	Variables: Partial<AuthVariables>;
+}>();
 
 const appMeta: AppMeta = {
 	name: pkg.name,
 	version: pkg.version,
 	description: pkg.description,
 };
+
+// CORS middleware using TRUSTED_ORIGINS environment variable
+app.use("*", corsMiddleware());
+
+// Auth middleware - optional so public routes work, protected routes check auth themselves
+app.use("*", authMiddleware({ optional: true }));
 
 app.onError((err, c) => {
 	if (err instanceof ApiException) {
@@ -63,11 +77,9 @@ app.get("/docsz", (c) => {
 	return c.html(getScalarHtml(appMeta));
 });
 
-// Register Tasks Sub router
-openapi.route("/tasks", tasksRouter);
-
-// Register other endpoints
-openapi.post("/dummy/:slug", DummyEndpoint);
+// Register API routes
+openapi.route("/documents", documentsRouter);
+openapi.route("/upload-links", uploadLinksRouter);
 
 // Sentry is enabled only when SENTRY_DSN environment variable is set.
 // Configure it via wrangler secrets: `wrangler secret put SENTRY_DSN`
