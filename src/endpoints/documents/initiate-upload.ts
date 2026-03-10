@@ -2,6 +2,7 @@ import { OpenAPIRoute, Str, Bool } from "chanfana";
 import { z } from "zod";
 import type { AppContext } from "../../types";
 import { generateId } from "../../lib/id-generator";
+import { formatZodError } from "../../lib/format-zod-error";
 import { createR2Client, generateMvpUploadUrls } from "../../lib/r2-presign";
 
 /**
@@ -218,7 +219,10 @@ export class InitiateUpload extends OpenAPIRoute {
 		const parseResult = InitiateUploadBodySchema.safeParse(body);
 
 		if (!parseResult.success) {
-			return c.json({ success: false, error: parseResult.error.message }, 400);
+			return c.json(
+				{ success: false, error: formatZodError(parseResult.error) },
+				400,
+			);
 		}
 
 		const { pageCount, originalPdfCount, originalImageCount } =

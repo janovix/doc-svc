@@ -4,6 +4,7 @@ import type { AppContext } from "../../types";
 import { getPrisma } from "../../lib/prisma";
 import { createR2Client, objectExists } from "../../lib/r2-presign";
 import { verifySessionToken } from "../../lib/session-token";
+import { formatZodError } from "../../lib/format-zod-error";
 import { DocumentRepository } from "../../domain/document/repository";
 import { DocumentService } from "../../domain/document/service";
 import { UploadLinkRepository } from "../../domain/upload-link/repository";
@@ -297,7 +298,10 @@ export class ConfirmUpload extends OpenAPIRoute {
 		const parseResult = ConfirmUploadBodySchema.safeParse(body);
 
 		if (!parseResult.success) {
-			return c.json({ success: false, error: parseResult.error.message }, 400);
+			return c.json(
+				{ success: false, error: formatZodError(parseResult.error) },
+				400,
+			);
 		}
 
 		const {

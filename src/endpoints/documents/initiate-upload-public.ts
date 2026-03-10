@@ -6,6 +6,7 @@ import { getPrisma } from "../../lib/prisma";
 import { createR2Client, generateMvpUploadUrls } from "../../lib/r2-presign";
 import { generateSessionToken } from "../../lib/session-token";
 import { verifyTurnstileToken } from "../../lib/turnstile";
+import { formatZodError } from "../../lib/format-zod-error";
 import { UploadLinkRepository } from "../../domain/upload-link/repository";
 import { UploadLinkService } from "../../domain/upload-link/service";
 
@@ -191,7 +192,10 @@ export class InitiateUploadPublic extends OpenAPIRoute {
 		const parseResult = InitiateUploadPublicBodySchema.safeParse(body);
 
 		if (!parseResult.success) {
-			return c.json({ success: false, error: parseResult.error.message }, 400);
+			return c.json(
+				{ success: false, error: formatZodError(parseResult.error) },
+				400,
+			);
 		}
 
 		const { pageCount, originalPdfCount, originalImageCount, uploadLinkId } =
