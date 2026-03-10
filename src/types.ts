@@ -66,8 +66,11 @@ export type Bindings = Env & {
 	R2_BUCKET: R2Bucket;
 	/** Durable Object for SSE event broadcasting */
 	UPLOAD_LINK_EVENTS: DurableObjectNamespace;
-	/** Service binding to auth-svc for worker-to-worker communication */
-	AUTH_SERVICE: Fetcher;
+	/**
+	 * Service binding to auth-svc via `AuthSvcEntrypoint`.
+	 * Caller wrangler config must include `"entrypoint": "AuthSvcEntrypoint"`.
+	 */
+	AUTH_SERVICE: { getJwks(): Promise<{ keys: unknown[] }> };
 	/** Auth service URL for JWKS */
 	AUTH_SERVICE_URL?: string;
 	/** Auth JWKS cache TTL in seconds */
