@@ -50,6 +50,7 @@
 		{
 			"binding": "AUTH_SERVICE",
 			"service": "auth-svc",
+			"entrypoint": "AuthSvcEntrypoint",
 		},
 	],
 }

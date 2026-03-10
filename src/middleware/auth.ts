@@ -62,51 +62,49 @@ let cachedJWKS: jose.JSONWebKeySet | null = null;
 let cachedJWKSExpiry: number = 0;
 
 /**
- * Fetches JWKS from auth-svc with in-memory caching
+ * Minimal RPC interface for auth-svc's AuthSvcEntrypoint.
+ */
+interface AuthSvcRpc {
+	getJwks(): Promise<{ keys: unknown[] }>;
+}
+
+/**
+ * Fetches JWKS from auth-svc with in-memory caching.
+ * Uses RPC when the service binding is available; falls back to HTTP in local dev.
  */
 async function getJWKS(
 	authServiceUrl: string,
 	cacheTtl: number,
-	authServiceBinding?: Fetcher,
+	authServiceBinding?: AuthSvcRpc,
 	environment?: string,
 ): Promise<jose.JSONWebKeySet> {
 	const now = Date.now();
 
-	// Check in-memory cache
 	if (cachedJWKS && cachedJWKSExpiry > now) {
 		return cachedJWKS;
 	}
 
-	// Fetch from auth service
-	const jwksUrl = `${authServiceUrl}/api/auth/jwks`;
-	let response: Response;
+	let jwks: jose.JSONWebKeySet;
 
 	// Service bindings don't work reliably in local development
 	const useServiceBinding = authServiceBinding && environment !== "local";
 
 	if (useServiceBinding) {
-		response = await authServiceBinding.fetch(
-			new Request(jwksUrl, {
-				headers: { Accept: "application/json" },
-			}),
-		);
+		jwks = (await authServiceBinding.getJwks()) as jose.JSONWebKeySet;
 	} else {
-		response = await fetch(jwksUrl, {
+		const jwksUrl = `${authServiceUrl}/api/auth/jwks`;
+		const response = await fetch(jwksUrl, {
 			headers: { Accept: "application/json" },
-			cf: {
-				cacheTtl: 0,
-				cacheEverything: false,
-			},
+			cf: { cacheTtl: 0, cacheEverything: false },
 		} as RequestInit);
-	}
 
-	if (!response.ok) {
-		throw new Error(
-			`Failed to fetch JWKS from ${jwksUrl}: ${response.status} ${response.statusText}`,
-		);
+		if (!response.ok) {
+			throw new Error(
+				`Failed to fetch JWKS from ${jwksUrl}: ${response.status} ${response.statusText}`,
+			);
+		}
+		jwks = (await response.json()) as jose.JSONWebKeySet;
 	}
-
-	const jwks = (await response.json()) as jose.JSONWebKeySet;
 
 	// Validate JWKS structure
 	if (!jwks.keys || !Array.isArray(jwks.keys) || jwks.keys.length === 0) {
@@ -127,7 +125,7 @@ export async function verifyToken(
 	token: string,
 	authServiceUrl: string,
 	cacheTtl: number,
-	authServiceBinding?: Fetcher,
+	authServiceBinding?: AuthSvcRpc,
 	environment?: string,
 ): Promise<AuthTokenPayload> {
 	const jwks = await getJWKS(
