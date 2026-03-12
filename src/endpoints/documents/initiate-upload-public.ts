@@ -60,6 +60,10 @@ export class InitiateUploadPublic extends OpenAPIRoute {
 				"x-turnstile-token": Str({
 					description: "Cloudflare Turnstile token",
 				}).optional(),
+				"x-kyc-session-token": Str({
+					description:
+						"KYC session token (validates via aml-svc; skips Turnstile)",
+				}).optional(),
 			}),
 			body: {
 				content: {
@@ -148,8 +152,8 @@ export class InitiateUploadPublic extends OpenAPIRoute {
 	};
 
 	async handle(c: AppContext) {
-		// Get Turnstile token from header
 		const turnstileToken = c.req.header("x-turnstile-token");
+		const kycSessionToken = c.req.header("x-kyc-session-token");
 
 		// Check configuration
 		const {
@@ -160,6 +164,7 @@ export class InitiateUploadPublic extends OpenAPIRoute {
 			R2_PUBLIC_DOMAIN,
 			TURNSTILE_SECRET_KEY,
 			SESSION_TOKEN_SECRET,
+			AML_SERVICE_URL,
 		} = c.env;
 
 		if (
@@ -204,8 +209,35 @@ export class InitiateUploadPublic extends OpenAPIRoute {
 		// Determine organization ID
 		let organizationId = "public";
 
-		// If upload link ID provided, validate and get organization ID
-		if (uploadLinkId) {
+		// KYC session token: validate with aml-svc and skip Turnstile
+		if (kycSessionToken && AML_SERVICE_URL) {
+			const kycUrl = `${AML_SERVICE_URL}/api/v1/public/kyc/${encodeURIComponent(kycSessionToken)}`;
+			const kycRes = await fetch(kycUrl);
+			if (!kycRes.ok) {
+				return c.json(
+					{
+						success: false,
+						error: "Invalid or expired KYC session",
+					},
+					401,
+				);
+			}
+			const kycData = (await kycRes.json()) as {
+				session?: { organizationId?: string };
+			};
+			const orgId = kycData.session?.organizationId;
+			if (!orgId) {
+				return c.json(
+					{
+						success: false,
+						error: "Invalid KYC session response",
+					},
+					401,
+				);
+			}
+			organizationId = orgId;
+		} else if (uploadLinkId) {
+			// Upload link ID provided, validate and get organization ID
 			const prisma = getPrisma(c.env.DB);
 			const uploadLinkRepo = new UploadLinkRepository(prisma);
 			const uploadLinkService = new UploadLinkService(uploadLinkRepo);
@@ -229,12 +261,13 @@ export class InitiateUploadPublic extends OpenAPIRoute {
 				throw error;
 			}
 		} else {
-			// No upload link, require Turnstile verification
+			// No KYC token and no upload link, require Turnstile verification
 			if (!turnstileToken) {
 				return c.json(
 					{
 						success: false,
-						error: "Missing Turnstile token or upload link ID",
+						error:
+							"Missing Turnstile token, KYC session token, or upload link ID",
 					},
 					400,
 				);

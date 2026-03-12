@@ -75,6 +75,8 @@ export type Bindings = Env & {
 	AUTH_SERVICE_URL?: string;
 	/** Auth JWKS cache TTL in seconds */
 	AUTH_JWKS_CACHE_TTL?: string;
+	/** AML service URL for KYC session validation (e.g. https://aml-svc.janovix.workers.dev) */
+	AML_SERVICE_URL?: string;
 	/** Environment name */
 	ENVIRONMENT?: string;
 	/**

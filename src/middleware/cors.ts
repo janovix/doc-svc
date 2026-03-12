@@ -91,6 +91,7 @@ export function corsMiddleware(): MiddlewareHandler {
 				"Content-Type",
 				"Authorization",
 				"X-Turnstile-Token",
+				"X-KYC-Session-Token",
 				"X-Session-Token",
 			],
 			allowMethods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
