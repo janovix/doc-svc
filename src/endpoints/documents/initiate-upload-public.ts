@@ -212,14 +212,42 @@ export class InitiateUploadPublic extends OpenAPIRoute {
 		// KYC session token: validate with aml-svc and skip Turnstile
 		if (kycSessionToken && AML_SERVICE_URL) {
 			const kycUrl = `${AML_SERVICE_URL}/api/v1/public/kyc/${encodeURIComponent(kycSessionToken)}`;
-			const kycRes = await fetch(kycUrl);
-			if (!kycRes.ok) {
+			let kycRes: Response;
+			try {
+				kycRes = await fetch(kycUrl);
+			} catch (err) {
+				console.error("KYC session validation request failed:", err);
 				return c.json(
 					{
 						success: false,
-						error: "Invalid or expired KYC session",
+						error: "KYC session validation unavailable",
 					},
-					401,
+					503,
+				);
+			}
+			if (!kycRes.ok) {
+				const status = kycRes.status;
+				let errorMessage = "Invalid or expired KYC session";
+				try {
+					const body = (await kycRes.json()) as {
+						message?: string;
+						error?: string;
+					};
+					if (body.message) {
+						errorMessage = body.message;
+					} else if (
+						body.error === "SESSION_EXPIRED" ||
+						body.error === "SESSION_REVOKED"
+					) {
+						errorMessage =
+							body.message ?? "KYC session has expired or been revoked";
+					}
+				} catch {
+					// Use default message if body is not JSON
+				}
+				return c.json(
+					{ success: false, error: errorMessage },
+					status === 410 ? 410 : 401,
 				);
 			}
 			const kycData = (await kycRes.json()) as {
