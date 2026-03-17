@@ -209,14 +209,25 @@ export class InitiateUploadPublic extends OpenAPIRoute {
 		// Determine organization ID
 		let organizationId = "public";
 
+		// KYC session token present but service not configured
+		if (kycSessionToken && !AML_SERVICE_URL) {
+			return c.json({ success: false, error: "KYC service unavailable" }, 503);
+		}
+
 		// KYC session token: validate with aml-svc and skip Turnstile
 		if (kycSessionToken && AML_SERVICE_URL) {
 			const kycUrl = `${AML_SERVICE_URL}/api/v1/public/kyc/${encodeURIComponent(kycSessionToken)}`;
+			const controller = new AbortController();
+			const timeoutId = setTimeout(() => controller.abort(), 10_000);
 			let kycRes: Response;
 			try {
-				kycRes = await fetch(kycUrl);
+				kycRes = await fetch(kycUrl, { signal: controller.signal });
 			} catch (err) {
-				console.error("KYC session validation request failed:", err);
+				if (err instanceof DOMException && err.name === "AbortError") {
+					console.error("KYC session validation request timed out");
+				} else {
+					console.error("KYC session validation request failed:", err);
+				}
 				return c.json(
 					{
 						success: false,
@@ -224,6 +235,8 @@ export class InitiateUploadPublic extends OpenAPIRoute {
 					},
 					503,
 				);
+			} finally {
+				clearTimeout(timeoutId);
 			}
 			if (!kycRes.ok) {
 				const status = kycRes.status;
@@ -233,14 +246,14 @@ export class InitiateUploadPublic extends OpenAPIRoute {
 						message?: string;
 						error?: string;
 					};
-					if (body.message) {
-						errorMessage = body.message;
-					} else if (
+					if (
 						body.error === "SESSION_EXPIRED" ||
 						body.error === "SESSION_REVOKED"
 					) {
 						errorMessage =
 							body.message ?? "KYC session has expired or been revoked";
+					} else if (body.message) {
+						errorMessage = body.message;
 					}
 				} catch {
 					// Use default message if body is not JSON
