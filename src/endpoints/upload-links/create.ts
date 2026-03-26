@@ -7,6 +7,7 @@
 
 import { OpenAPIRoute, contentJson } from "chanfana";
 import { z } from "zod";
+import { formatZodError } from "../../lib/format-zod-error";
 import type { AppContext } from "../../types";
 import { getPrisma } from "../../lib/prisma";
 import { UploadLinkRepository } from "../../domain/upload-link/repository";
@@ -83,7 +84,10 @@ export class CreateUploadLink extends OpenAPIRoute {
 		const parseResult = UploadLinkCreateInputSchema.safeParse(body);
 
 		if (!parseResult.success) {
-			return c.json({ success: false, error: parseResult.error.message }, 400);
+			return c.json(
+				{ success: false, error: formatZodError(parseResult.error) },
+				400,
+			);
 		}
 
 		const prisma = getPrisma(c.env.DB);

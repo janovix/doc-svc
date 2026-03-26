@@ -6,6 +6,7 @@ import { getPrisma } from "../../lib/prisma";
 import { createR2Client, generateMvpUploadUrls } from "../../lib/r2-presign";
 import { generateSessionToken } from "../../lib/session-token";
 import { verifyTurnstileToken } from "../../lib/turnstile";
+import { formatZodError } from "../../lib/format-zod-error";
 import { UploadLinkRepository } from "../../domain/upload-link/repository";
 import { UploadLinkService } from "../../domain/upload-link/service";
 
@@ -58,6 +59,10 @@ export class InitiateUploadPublic extends OpenAPIRoute {
 			headers: z.object({
 				"x-turnstile-token": Str({
 					description: "Cloudflare Turnstile token",
+				}).optional(),
+				"x-kyc-session-token": Str({
+					description:
+						"KYC session token (validates via aml-svc; skips Turnstile)",
 				}).optional(),
 			}),
 			body: {
@@ -147,8 +152,8 @@ export class InitiateUploadPublic extends OpenAPIRoute {
 	};
 
 	async handle(c: AppContext) {
-		// Get Turnstile token from header
 		const turnstileToken = c.req.header("x-turnstile-token");
+		const kycSessionToken = c.req.header("x-kyc-session-token");
 
 		// Check configuration
 		const {
@@ -159,6 +164,7 @@ export class InitiateUploadPublic extends OpenAPIRoute {
 			R2_PUBLIC_DOMAIN,
 			TURNSTILE_SECRET_KEY,
 			SESSION_TOKEN_SECRET,
+			AML_SERVICE_URL,
 		} = c.env;
 
 		if (
@@ -191,7 +197,10 @@ export class InitiateUploadPublic extends OpenAPIRoute {
 		const parseResult = InitiateUploadPublicBodySchema.safeParse(body);
 
 		if (!parseResult.success) {
-			return c.json({ success: false, error: parseResult.error.message }, 400);
+			return c.json(
+				{ success: false, error: formatZodError(parseResult.error) },
+				400,
+			);
 		}
 
 		const { pageCount, originalPdfCount, originalImageCount, uploadLinkId } =
@@ -200,8 +209,76 @@ export class InitiateUploadPublic extends OpenAPIRoute {
 		// Determine organization ID
 		let organizationId = "public";
 
-		// If upload link ID provided, validate and get organization ID
-		if (uploadLinkId) {
+		// KYC session token present but service not configured
+		if (kycSessionToken && !AML_SERVICE_URL) {
+			return c.json({ success: false, error: "KYC service unavailable" }, 503);
+		}
+
+		// KYC session token: validate with aml-svc and skip Turnstile
+		if (kycSessionToken && AML_SERVICE_URL) {
+			const kycUrl = `${AML_SERVICE_URL}/api/v1/public/kyc/${encodeURIComponent(kycSessionToken)}`;
+			const controller = new AbortController();
+			const timeoutId = setTimeout(() => controller.abort(), 10_000);
+			let kycRes: Response;
+			try {
+				kycRes = await fetch(kycUrl, { signal: controller.signal });
+			} catch (err) {
+				if (err instanceof DOMException && err.name === "AbortError") {
+					console.error("KYC session validation request timed out");
+				} else {
+					console.error("KYC session validation request failed:", err);
+				}
+				return c.json(
+					{
+						success: false,
+						error: "KYC session validation unavailable",
+					},
+					503,
+				);
+			} finally {
+				clearTimeout(timeoutId);
+			}
+			if (!kycRes.ok) {
+				const status = kycRes.status;
+				let errorMessage = "Invalid or expired KYC session";
+				try {
+					const body = (await kycRes.json()) as {
+						message?: string;
+						error?: string;
+					};
+					if (
+						body.error === "SESSION_EXPIRED" ||
+						body.error === "SESSION_REVOKED"
+					) {
+						errorMessage =
+							body.message ?? "KYC session has expired or been revoked";
+					} else if (body.message) {
+						errorMessage = body.message;
+					}
+				} catch {
+					// Use default message if body is not JSON
+				}
+				return c.json(
+					{ success: false, error: errorMessage },
+					status === 410 ? 410 : 401,
+				);
+			}
+			const kycData = (await kycRes.json()) as {
+				session?: { organizationId?: string };
+			};
+			const orgId = kycData.session?.organizationId;
+			if (!orgId) {
+				return c.json(
+					{
+						success: false,
+						error: "Invalid KYC session response",
+					},
+					401,
+				);
+			}
+			organizationId = orgId;
+		} else if (uploadLinkId) {
+			// Upload link ID provided, validate and get organization ID
 			const prisma = getPrisma(c.env.DB);
 			const uploadLinkRepo = new UploadLinkRepository(prisma);
 			const uploadLinkService = new UploadLinkService(uploadLinkRepo);
@@ -225,12 +302,13 @@ export class InitiateUploadPublic extends OpenAPIRoute {
 				throw error;
 			}
 		} else {
-			// No upload link, require Turnstile verification
+			// No KYC token and no upload link, require Turnstile verification
 			if (!turnstileToken) {
 				return c.json(
 					{
 						success: false,
-						error: "Missing Turnstile token or upload link ID",
+						error:
+							"Missing Turnstile token, KYC session token, or upload link ID",
 					},
 					400,
 				);

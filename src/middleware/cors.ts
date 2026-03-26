@@ -7,11 +7,12 @@ import { cors } from "hono/cors";
  *
  * Supported patterns:
  * - Exact match: "https://aml.janovix.com"
- * - Wildcard subdomain: "*.janovix.workers.dev" (matches any subdomain)
+ * - Wildcard subdomain: "*.janovix.workers.dev" or "https://*.janovix.workers.dev" (matches any subdomain)
  * - Localhost wildcard: "http://localhost:*" (matches any port)
  *
  * Examples:
  * - "*.janovix.com" matches: https://aml.janovix.com, https://auth.janovix.com
+ * - "https://*.janovix.workers.dev" matches: https://kyc.janovix.workers.dev, https://doc-svc.janovix.workers.dev
  * - "*.janovix.com" does NOT match: https://janovix.com (use explicit entry for root)
  * - "http://localhost:*" matches: http://localhost:3000, http://localhost:3001
  *
@@ -33,18 +34,17 @@ export function isOriginAllowed(origin: string, patterns: string[]): boolean {
 			return true;
 		}
 
-		// Wildcard subdomain match (*.domain.com)
-		if (pattern.startsWith("*.")) {
-			const domain = pattern.slice(1); // Remove * but keep the dot (e.g., ".janovix.com")
-			if (origin.endsWith(domain)) {
-				// Verify it's actually a subdomain with valid format
-				// Extract the part before the domain (e.g., "https://aml" from "https://aml.janovix.com")
-				const beforeDomain = origin.slice(0, -domain.length);
-				// Must be a valid protocol + subdomain (alphanumeric and hyphens only)
-				if (/^https?:\/\/[a-z0-9-]+$/i.test(beforeDomain)) {
-					return true;
-				}
-			}
+		// Wildcard subdomain match (*.domain.com) or protocol-prefixed (https://*.domain.com)
+		const wildcardMatch = pattern.match(/^(https?:\/\/)?(\*\.(.+))$/);
+		if (wildcardMatch) {
+			const domain = "." + wildcardMatch[3]; // e.g. ".janovix.workers.dev"
+			const requiredProtocol = wildcardMatch[1]; // "https://", "http://", or undefined
+			if (!origin.endsWith(domain)) continue;
+			const beforeDomain = origin.slice(0, -domain.length);
+			// Must be protocol + subdomain (alphanumeric and hyphens only)
+			if (!/^https?:\/\/[a-z0-9-]+$/i.test(beforeDomain)) continue;
+			if (requiredProtocol && !origin.startsWith(requiredProtocol)) continue;
+			return true;
 		}
 
 		// Localhost wildcard port match (http://localhost:*)
@@ -87,7 +87,13 @@ export function corsMiddleware(): MiddlewareHandler {
 				// Check if origin matches any pattern
 				return isOriginAllowed(origin, trustedPatterns) ? origin : null;
 			},
-			allowHeaders: ["Content-Type", "Authorization"],
+			allowHeaders: [
+				"Content-Type",
+				"Authorization",
+				"X-Turnstile-Token",
+				"X-KYC-Session-Token",
+				"X-Session-Token",
+			],
 			allowMethods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
 			exposeHeaders: ["Content-Length", "X-Request-Id"],
 			maxAge: 600,
