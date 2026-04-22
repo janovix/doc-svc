@@ -10,6 +10,8 @@ declare namespace Cloudflare {
 		ENVIRONMENT: "dev";
 		DB: D1Database;
 		CF_VERSION_METADATA: WorkerVersionMetadata;
+		/** Set in wrangler*.jsonc / secret; used by POST /api/v1/internal/e2e/purge */
+		E2E_API_KEY?: string;
 	}
 }
 interface Env extends Cloudflare.Env {}

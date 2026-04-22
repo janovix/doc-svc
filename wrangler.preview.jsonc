@@ -19,6 +19,7 @@
 		"AUTH_JWKS_CACHE_TTL": "3600",
 		"R2_BUCKET_NAME": "doc-preview",
 		"R2_PUBLIC_DOMAIN": "doc-storage-preview.janovix.com",
+		"E2E_API_KEY": "",
 	},
 	"d1_databases": [
 		{
