@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { getPrismaClient } from "../lib/prisma";
 import { deleteFromR2 } from "../lib/r2-storage";
+import type { Bindings } from "../types";
 
 const PurgeBodySchema = z.object({
 	organizationIds: z.array(z.string().min(1)),
@@ -31,7 +32,7 @@ function keysForDocument(doc: {
 	return [...keys];
 }
 
-export const internalE2eRouter = new Hono();
+export const internalE2eRouter = new Hono<{ Bindings: Bindings }>();
 
 internalE2eRouter.use("*", async (c, next) => {
 	const expected = c.env.E2E_API_KEY;
@@ -42,9 +43,14 @@ internalE2eRouter.use("*", async (c, next) => {
 });
 
 internalE2eRouter.post("/purge", async (c) => {
-	const parsed = PurgeBodySchema.safeParse(await c.req.json().catch(() => ({})));
+	const parsed = PurgeBodySchema.safeParse(
+		await c.req.json().catch(() => ({})),
+	);
 	if (!parsed.success) {
-		return c.json({ error: "Invalid body", details: parsed.error.flatten() }, 400);
+		return c.json(
+			{ error: "Invalid body", details: parsed.error.flatten() },
+			400,
+		);
 	}
 
 	const prisma = getPrismaClient(c.env.DB);
