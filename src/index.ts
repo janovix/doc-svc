@@ -7,6 +7,7 @@ import { getOpenApiInfo, getScalarHtml, type AppMeta } from "./app-meta";
 import type { Bindings } from "./types";
 import { documentsRouter } from "./endpoints/documents/router";
 import { uploadLinksRouter } from "./endpoints/upload-links/router";
+import { internalE2eRouter } from "./routes/internal-e2e";
 import { authMiddleware, type AuthVariables } from "./middleware/auth";
 import { corsMiddleware } from "./middleware/cors";
 
@@ -76,6 +77,8 @@ app.get("/healthz", (c) => {
 app.get("/docsz", (c) => {
 	return c.html(getScalarHtml(appMeta));
 });
+
+app.route("/api/v1/internal/e2e", internalE2eRouter);
 
 // Register API routes
 openapi.route("/documents", documentsRouter);

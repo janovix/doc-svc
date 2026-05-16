@@ -114,6 +114,8 @@ export type Bindings = Env & {
 	// CORS configuration
 	/** Comma-separated list of trusted origin patterns for CORS */
 	TRUSTED_ORIGINS?: string;
+	/** Shared secret for internal E2E purge */
+	E2E_API_KEY?: string;
 };
 
 export type AppContext = Context<{
